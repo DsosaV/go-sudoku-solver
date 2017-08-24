@@ -35,24 +35,65 @@ func main() {
 	}
 	PrintGrid(grid)
 	for {
-		solved := true
+		foundOne := false
 		for x := 0; x < 9; x++ {
 			for y := 0; y < 9; y++ {
 				posibleSolutions := FindPosibleSolutions(x, y, grid)
 				if len(posibleSolutions) == 1 {
-					fmt.Printf("Definitive solution for (%d, %d): %v\n", x, y, posibleSolutions)
+					fmt.Printf("Definitive solution for (%d, %d): %d\n", x, y, posibleSolutions[0])
 					grid[x][y] = posibleSolutions[0]
-				}
-				if grid[x][y] == 0 {
-					solved = false
+					foundOne = true
+				} else if len(posibleSolutions) > 1 {
+					boxX := x - (x % 3)
+					boxY := y - (y % 3)
+					for _, num := range posibleSolutions {
+						var fitSlice [][]int
+						for i := 0; i < 3; i++ {
+							for j := 0; j < 3; j++ {
+								fits := FindPosibleSolutions(boxX+i, boxY+j, grid)
+								if len(fits) > 0 {
+									for _, f := range fits {
+										if f == num {
+											fitSlice = append(fitSlice, []int{boxX + i, boxY + j, num})
+											break
+										}
+									}
+								}
+							}
+						}
+						if len(fitSlice) == 1 {
+							solX := fitSlice[0][0]
+							solY := fitSlice[0][1]
+							fmt.Printf("Definitive solution for (%d, %d): %d\n", solX, solY, num)
+							foundOne = true
+							grid[solX][solY] = num
+							break
+						}
+					}
 				}
 			}
 		}
-		if solved {
+		if IsSolved(grid) {
+			break
+		}
+		if !foundOne {
+			fmt.Println("Could not find any more posible solutions...")
 			break
 		}
 	}
 	PrintGrid(grid)
+}
+
+// IsSolved determines if a sudoku grid is already solved.
+func IsSolved(grid [9][9]int) bool {
+	for x := 0; x < 9; x++ {
+		for y := 0; y < 9; y++ {
+			if grid[x][y] == 0 {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // PrintGrid prints the complete Sudoku grid.
