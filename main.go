@@ -34,14 +34,25 @@ func main() {
 		}
 	}
 	PrintGrid(grid)
-	for x := 0; x < 9; x++ {
-		for y := 0; y < 9; y++ {
-			posibleSolutions := FindPosibleSolutions(x, y, grid)
-			if len(posibleSolutions) == 1 {
-				fmt.Printf("Definitive solution for (%d, %d): %v\n", x, y, posibleSolutions)
+	for {
+		solved := true
+		for x := 0; x < 9; x++ {
+			for y := 0; y < 9; y++ {
+				posibleSolutions := FindPosibleSolutions(x, y, grid)
+				if len(posibleSolutions) == 1 {
+					fmt.Printf("Definitive solution for (%d, %d): %v\n", x, y, posibleSolutions)
+					grid[x][y] = posibleSolutions[0]
+				}
+				if grid[x][y] == 0 {
+					solved = false
+				}
 			}
 		}
+		if solved {
+			break
+		}
 	}
+	PrintGrid(grid)
 }
 
 // PrintGrid prints the complete Sudoku grid.
