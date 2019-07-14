@@ -4,9 +4,12 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 )
+
+type sudokuGrid [][]int
 
 func main() {
 	file, err := os.Open("sudoku.csv")
@@ -18,9 +21,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	var grid [9][9]int
+	var grid sudokuGrid = make([][]int, 9)
 	for i := 0; i < 9; i++ {
-		grid[i] = [9]int{}
+		grid[i] = make([]int, 9)
 		for j := 0; j < 9; j++ {
 			if len(gridStr[i][j]) > 0 {
 				num, err := strconv.ParseInt(gridStr[i][j], 10, 64)
@@ -33,62 +36,62 @@ func main() {
 			}
 		}
 	}
-	PrintGrid(grid)
-	for {
-		foundOne := false
-		for x := 0; x < 9; x++ {
-			for y := 0; y < 9; y++ {
-				posibleSolutions := FindPosibleSolutions(x, y, grid)
-				if len(posibleSolutions) == 1 {
-					fmt.Printf("Definitive solution for (%d, %d): %d\n", x, y, posibleSolutions[0])
-					grid[x][y] = posibleSolutions[0]
-					foundOne = true
-				} else if len(posibleSolutions) > 1 {
-					boxX := x - (x % 3)
-					boxY := y - (y % 3)
-					for _, num := range posibleSolutions {
-						var fitSlice [][]int
-						for i := 0; i < 3; i++ {
-							for j := 0; j < 3; j++ {
-								fits := FindPosibleSolutions(boxX+i, boxY+j, grid)
-								if len(fits) > 0 {
-									for _, f := range fits {
-										if f == num {
-											fitSlice = append(fitSlice, []int{boxX + i, boxY + j, num})
-											break
-										}
-									}
-								}
-							}
-						}
-						if len(fitSlice) == 1 {
-							solX := fitSlice[0][0]
-							solY := fitSlice[0][1]
-							fmt.Printf("Definitive solution for (%d, %d): %d\n", solX, solY, num)
-							foundOne = true
-							grid[solX][solY] = num
-							break
-						}
-					}
-				}
-			}
-		}
-		if IsSolved(grid) {
-			break
-		}
-		if !foundOne {
-			fmt.Println("Could not find any more posible solutions...")
-			break
-		}
-	}
-	PrintGrid(grid)
+
+	PrintGrid(&grid)
+	solveSudoku(&grid)
+	PrintGrid(&grid)
 }
 
-// IsSolved determines if a sudoku grid is already solved.
-func IsSolved(grid [9][9]int) bool {
-	for x := 0; x < 9; x++ {
-		for y := 0; y < 9; y++ {
-			if grid[x][y] == 0 {
+func solveSudoku(grid *sudokuGrid) bool {
+	x, y, found := FindUnassignedCell(grid)
+	if !found {
+		return true
+	}
+	n := len(*grid)
+	for num := 1; num <= n; num++ {
+		isValidRow := checkRow(grid, x, y, num)
+		isValidColumn := checkColumn(grid, x, y, num)
+		isValidBox := checkBox(grid, x, y, num)
+		if isValidBox && isValidColumn && isValidRow {
+			(*grid)[x][y] = num
+			solved := solveSudoku(grid)
+			if solved {
+				return true
+			}
+			(*grid)[x][y] = 0
+		}
+	}
+	return false
+}
+
+func checkRow(grid *sudokuGrid, row, col, num int) bool {
+	n := len(*grid)
+	for i := 0; i < n; i++ {
+		if (*grid)[row][i] == num {
+			return false
+		}
+	}
+	return true
+}
+
+func checkColumn(grid *sudokuGrid, row, col, num int) bool {
+	n := len(*grid)
+	for i := 0; i < n; i++ {
+		if (*grid)[i][col] == num {
+			return false
+		}
+	}
+	return true
+}
+
+func checkBox(grid *sudokuGrid, row, col, num int) bool {
+	var sqrt = int(math.Sqrt(float64(len(*grid))))
+	var boxRowStart = row - row%sqrt
+	var boxColStart = col - col%sqrt
+
+	for r := boxRowStart; r < boxRowStart+sqrt; r++ {
+		for d := boxColStart; d < boxColStart+sqrt; d++ {
+			if (*grid)[r][d] == num {
 				return false
 			}
 		}
@@ -96,11 +99,27 @@ func IsSolved(grid [9][9]int) bool {
 	return true
 }
 
-// PrintGrid prints the complete Sudoku grid.
-func PrintGrid(grid [9][9]int) {
-	for i, hLine := range grid {
-		if i%3 == 0 {
+// FindUnassignedCell blah blah blah
+func FindUnassignedCell(grid *sudokuGrid) (x, y int, found bool) {
+	n := len(*grid)
+	for x = 0; x < n; x++ {
+		for y = 0; y < n; y++ {
+			if (*grid)[x][y] == 0 {
+				found = true
+				return
+			}
+		}
+	}
+	return -1, -1, false
+}
+
+// PrintGrid prints the complete Sudoku grid. It only works for 9x9 grids.
+func PrintGrid(grid *sudokuGrid) {
+	for i, hLine := range *grid {
+		if i == 0 {
 			fmt.Println("  -------------------------- ")
+		} else if i%3 == 0 {
+			fmt.Println("   ------   ------   ------  ")
 		}
 		for j, num := range hLine {
 			if j%3 == 0 {
@@ -113,71 +132,4 @@ func PrintGrid(grid [9][9]int) {
 		}
 	}
 	fmt.Println("  -------------------------- ")
-}
-
-// GetBox takes a position and a grid and returns the box that position belongs to.
-// Each position having their respective value.
-func GetBox(x, y int, grid [9][9]int) [3][3]int {
-	var box [3][3]int
-	x -= x % 3
-	y -= y % 3
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 3; j++ {
-			box[i][j] = grid[x+i][y+j]
-		}
-	}
-	return box
-}
-
-// FindPosibleSolutions calculates the posible solutions for a single position in the grid.
-//
-// If the position already has a value, then this function returns an empty slice.
-func FindPosibleSolutions(x, y int, grid [9][9]int) []int {
-	// if the position is already filled, there's no need to find any other solution
-	if grid[x][y] != 0 {
-		return []int{}
-	}
-	// start with all posible solutions
-	posibleSolutions := []int{1, 2, 3, 4, 5, 6, 7, 8, 9}
-
-	// find numbers in the same line (either vertical or horizontal)
-	for i := 0; i < 9; i++ {
-
-		// horizontal line check
-		if grid[x][i] != 0 {
-			// remove from posibleSolutions slice
-			for index, element := range posibleSolutions {
-				if element == grid[x][i] {
-					posibleSolutions = append(posibleSolutions[:index], posibleSolutions[index+1:]...)
-					break
-				}
-			}
-		}
-
-		// vertical line check
-		if grid[i][y] != 0 {
-			// remove from posibleSolutions slice
-			for index, element := range posibleSolutions {
-				if element == grid[i][y] {
-					posibleSolutions = append(posibleSolutions[:index], posibleSolutions[index+1:]...)
-					break
-				}
-			}
-		}
-	}
-	// find numbers in the same box
-	boxX := x - (x % 3)
-	boxY := y - (y % 3)
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 3; j++ {
-			elem := grid[boxX+i][boxY+j]
-			for i := range posibleSolutions {
-				if posibleSolutions[i] == elem {
-					posibleSolutions = append(posibleSolutions[:i], posibleSolutions[i+1:]...)
-					break
-				}
-			}
-		}
-	}
-	return posibleSolutions
 }
